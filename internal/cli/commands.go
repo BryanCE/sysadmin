@@ -113,10 +113,8 @@ Useful for verifying that DNS changes have propagated correctly.`,
 				for _, provider := range providers {
 					provider = strings.TrimSpace(provider)
 					servers := nameservers.GetProviderNameservers(provider)
-					if servers != nil {
-						for _, server := range servers {
-							ns = append(ns, server.IP.String())
-						}
+					for _, server := range servers {
+						ns = append(ns, server.IP.String())
 					}
 				}
 			}
@@ -170,6 +168,11 @@ Useful for verifying that DNS changes have propagated correctly.`,
 
 // NewConsistencyCommand creates the consistency subcommand
 func NewConsistencyCommand() *cobra.Command {
+	var (
+		providerFlag string
+		formatFlag   string
+	)
+
 	cmd := &cobra.Command{
 		Use:   "consistency [domain]",
 		Short: "Check DNS consistency issues",
@@ -177,10 +180,66 @@ func NewConsistencyCommand() *cobra.Command {
 Identifies misconfigurations, inconsistencies, and potential problems.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("Consistency command executed")
-			return nil
+			domain := args[0]
+
+			// Get nameservers
+			var ns []string
+			if providerFlag != "" {
+				providers := strings.Split(providerFlag, ",")
+				for _, provider := range providers {
+					provider = strings.TrimSpace(provider)
+					servers := nameservers.GetProviderNameservers(provider)
+					for _, server := range servers {
+						ns = append(ns, server.IP.String())
+					}
+				}
+			}
+
+			if len(ns) == 0 {
+				// Use all nameservers for comprehensive check
+				allServers := nameservers.GetAllNameservers()
+				for _, server := range allServers {
+					ns = append(ns, server.IP.String())
+				}
+			}
+
+			// Create resolver and checker
+			resolver := dns.NewResolver()
+			checker := dns.NewConsistencyChecker(resolver)
+
+			// Create context with timeout
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			// Check consistency
+			issues, err := checker.CheckConsistency(ctx, domain, ns)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				return err
+			}
+
+			// Format and display results
+			var format output.OutputFormat
+			switch strings.ToLower(formatFlag) {
+			case "json":
+				format = output.FormatJSON
+			case "csv":
+				format = output.FormatCSV
+			case "xml":
+				format = output.FormatXML
+			default:
+				format = output.FormatTable
+			}
+
+			formatter := output.NewFormatter(format)
+			return formatter.FormatConsistencyIssues(issues, os.Stdout)
 		},
 	}
+
+	// Add flags
+	cmd.Flags().StringVarP(&providerFlag, "providers", "p", "", "DNS providers to check (comma-separated: google,cloudflare,quad9,opendns)")
+	cmd.Flags().StringVarP(&formatFlag, "format", "f", "table", "Output format (table, json, csv, xml)")
+
 	return cmd
 }
 
