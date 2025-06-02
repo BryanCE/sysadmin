@@ -6,10 +6,12 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/bryanCE/sysadmin/internal/network"
+	"github.com/bryanCE/sysadmin/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +28,7 @@ Includes ping sweeps, port scanning, and network discovery functionality.`,
 	cmd.AddCommand(NewPingSweepCommand())
 	cmd.AddCommand(NewPortScanCommand())
 	cmd.AddCommand(NewDiscoveryCommand())
+	cmd.AddCommand(NewWorkerPoolDiscoveryCommand())
 	cmd.AddCommand(NewMonitorCommand())
 
 	return cmd
@@ -52,8 +55,8 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			networkCIDR := args[0]
 
-			// Parse timeout
-			timeout := 3 * time.Second
+			// Parse timeout - using optimized default
+			timeout := 1 * time.Second
 			if timeoutFlag != "" {
 				var err error
 				timeout, err = time.ParseDuration(timeoutFlag)
@@ -62,11 +65,11 @@ Examples:
 				}
 			}
 
-			// Create scanner
+			// Create scanner with optimized settings
 			scanner := network.NewScanner()
 			scanner.SetTimeout(timeout)
 			if concurrencyFlag > 0 {
-				scanner.SetConcurrency(concurrencyFlag, 50)
+				scanner.SetConcurrency(concurrencyFlag, 5000)
 			}
 
 			// Create context with timeout
@@ -81,9 +84,8 @@ Examples:
 				return fmt.Errorf("ping sweep failed: %w", err)
 			}
 
-			// Display results in simple format for now
-			fmt.Printf("\n✅ Scan completed in %v\n", result.Duration)
-			fmt.Printf("📊 Found %d live hosts out of %d scanned:\n\n", result.Summary.LiveHosts, result.Summary.TotalHosts)
+			// Display results
+			fmt.Printf("\n✅ Batch scan completed in %v\n", result.Duration)
 
 			for _, host := range result.Hosts {
 				fmt.Printf("🟢 %-15s (%.2fms)\n", host.IP, float64(host.Latency.Nanoseconds())/1000000)
@@ -95,8 +97,8 @@ Examples:
 
 	// Add flags
 	cmd.Flags().StringVarP(&formatFlag, "format", "f", "table", "Output format (table, json, csv, xml)")
-	cmd.Flags().StringVarP(&timeoutFlag, "timeout", "t", "3s", "Connection timeout (e.g., 3s, 500ms)")
-	cmd.Flags().IntVarP(&concurrencyFlag, "concurrency", "c", 100, "Number of concurrent hosts to scan")
+	cmd.Flags().StringVarP(&timeoutFlag, "timeout", "t", "1s", "Connection timeout (e.g., 1s, 500ms)")
+	cmd.Flags().IntVarP(&concurrencyFlag, "concurrency", "c", 500, "Number of concurrent hosts to scan")
 
 	return cmd
 }
@@ -130,8 +132,8 @@ Examples:
 				return fmt.Errorf("invalid port range: %w", err)
 			}
 
-			// Parse timeout
-			timeout := 3 * time.Second
+			// Parse timeout - using optimized default
+			timeout := 1 * time.Second
 			if timeoutFlag != "" {
 				timeout, err = time.ParseDuration(timeoutFlag)
 				if err != nil {
@@ -139,18 +141,16 @@ Examples:
 				}
 			}
 
-			// Create scanner
+			// Create scanner with optimized settings
 			scanner := network.NewScanner()
 			scanner.SetTimeout(timeout)
 			if concurrencyFlag > 0 {
-				scanner.SetConcurrency(100, concurrencyFlag)
+				scanner.SetConcurrency(500, concurrencyFlag)
 			}
 
 			// Create context with timeout
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-
-			fmt.Printf("🔍 Scanning %s for %d ports...\n", host, len(ports))
 
 			// Perform port scan
 			result, err := scanner.ScanPorts(ctx, host, ports)
@@ -158,7 +158,7 @@ Examples:
 				return fmt.Errorf("port scan failed: %w", err)
 			}
 
-			// Display results in simple format for now
+			// Display results
 			fmt.Printf("\n📊 Found %d open ports:\n\n", len(result.Ports))
 
 			for _, port := range result.Ports {
@@ -179,8 +179,8 @@ Examples:
 
 	// Add flags
 	cmd.Flags().StringVarP(&formatFlag, "format", "f", "table", "Output format (table, json, csv, xml)")
-	cmd.Flags().StringVarP(&timeoutFlag, "timeout", "t", "3s", "Connection timeout (e.g., 3s, 500ms)")
-	cmd.Flags().IntVarP(&concurrencyFlag, "concurrency", "c", 50, "Number of concurrent ports to scan")
+	cmd.Flags().StringVarP(&timeoutFlag, "timeout", "t", "1s", "Connection timeout (e.g., 1s, 500ms)")
+	cmd.Flags().IntVarP(&concurrencyFlag, "concurrency", "c", 5000, "Number of concurrent ports to scan")
 
 	return cmd
 }
@@ -214,8 +214,8 @@ Examples:
 				return fmt.Errorf("invalid port range: %w", err)
 			}
 
-			// Parse timeout
-			timeout := 3 * time.Second
+			// Parse timeout - using optimized default
+			timeout := 1 * time.Second
 			if timeoutFlag != "" {
 				timeout, err = time.ParseDuration(timeoutFlag)
 				if err != nil {
@@ -223,18 +223,16 @@ Examples:
 				}
 			}
 
-			// Create scanner
+			// Create scanner with optimized settings
 			scanner := network.NewScanner()
 			scanner.SetTimeout(timeout)
 			if concurrencyFlag > 0 {
-				scanner.SetConcurrency(concurrencyFlag, 50)
+				scanner.SetConcurrency(concurrencyFlag, 5000)
 			}
 
 			// Create context with timeout
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 			defer cancel()
-
-			fmt.Printf("🔍 Network discovery on %s with %d ports...\n", networkCIDR, len(ports))
 
 			// Perform network discovery
 			result, err := scanner.NetworkDiscovery(ctx, networkCIDR, ports)
@@ -242,7 +240,96 @@ Examples:
 				return fmt.Errorf("network discovery failed: %w", err)
 			}
 
-			// Display results in simple format for now
+			// Display results
+			// Format and display results using the formatter
+			formatter := output.NewFormatter(output.OutputFormat(formatFlag))
+			return formatter.FormatScanResult(result, os.Stdout)
+			fmt.Printf("📊 Found %d live hosts out of %d scanned:\n\n", result.Summary.LiveHosts, result.Summary.TotalHosts)
+
+			for _, host := range result.Hosts {
+				fmt.Printf("��️  %s\n", host.IP)
+				if len(host.Ports) > 0 {
+					for _, port := range host.Ports {
+						service := port.Service
+						if service == "" {
+							service = "Unknown"
+						}
+						fmt.Printf("   🟢 %-5d %-12s", port.Port, service)
+						if port.Banner != "" {
+							fmt.Printf(" - %s", port.Banner)
+						}
+						fmt.Println()
+					}
+				} else {
+					fmt.Printf("   📝 Host alive but no open ports found in scanned range\n")
+				}
+				fmt.Println()
+			}
+
+			return nil
+		},
+	}
+
+	// Add flags
+	cmd.Flags().StringVarP(&formatFlag, "format", "f", "table", "Output format (table, json, csv, xml)")
+	cmd.Flags().StringVarP(&timeoutFlag, "timeout", "t", "1s", "Connection timeout (e.g., 1s, 500ms)")
+	cmd.Flags().IntVarP(&concurrencyFlag, "concurrency", "c", 500, "Number of concurrent hosts to scan")
+
+	return cmd
+}
+
+// NewWorkerPoolDiscoveryCommand creates the worker pool discovery subcommand for maximum performance
+func NewWorkerPoolDiscoveryCommand() *cobra.Command {
+	var (
+		formatFlag  string
+		timeoutFlag string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "discovery-fast [network] [ports]",
+		Short: "Perform high-speed network discovery using worker pools",
+		Long: `Discover live hosts on a network and scan specified ports using worker pools.
+This is the fastest scanning method available, optimized for maximum performance.
+
+Examples:
+  systool network discovery-fast 192.168.1.0/24 22,80,443
+  systool network discovery-fast 10.0.0.0/24 1-1000
+  systool network discovery-fast 172.16.0.0/24 80,443,8080,3389,22`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			networkCIDR := args[0]
+			portRange := args[1]
+
+			// Parse ports
+			ports, err := network.ParsePortRange(portRange)
+			if err != nil {
+				return fmt.Errorf("invalid port range: %w", err)
+			}
+
+			// Parse timeout - using optimized default
+			timeout := 1 * time.Second
+			if timeoutFlag != "" {
+				timeout, err = time.ParseDuration(timeoutFlag)
+				if err != nil {
+					return fmt.Errorf("invalid timeout format: %w", err)
+				}
+			}
+
+			// Create scanner with optimized settings
+			scanner := network.NewScanner()
+			scanner.SetTimeout(timeout)
+
+			// Create context with timeout
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+			defer cancel()
+
+			// Perform worker pool network discovery
+			result, err := scanner.NetworkDiscoveryWorkerPool(ctx, networkCIDR, ports)
+			if err != nil {
+				return fmt.Errorf("network discovery failed: %w", err)
+			}
+
+			// Display results
 			fmt.Printf("\n✅ Discovery completed in %v\n", result.Duration)
 			fmt.Printf("📊 Found %d live hosts out of %d scanned:\n\n", result.Summary.LiveHosts, result.Summary.TotalHosts)
 
@@ -272,8 +359,7 @@ Examples:
 
 	// Add flags
 	cmd.Flags().StringVarP(&formatFlag, "format", "f", "table", "Output format (table, json, csv, xml)")
-	cmd.Flags().StringVarP(&timeoutFlag, "timeout", "t", "3s", "Connection timeout (e.g., 3s, 500ms)")
-	cmd.Flags().IntVarP(&concurrencyFlag, "concurrency", "c", 100, "Number of concurrent hosts to scan")
+	cmd.Flags().StringVarP(&timeoutFlag, "timeout", "t", "1s", "Connection timeout (e.g., 1s, 500ms)")
 
 	return cmd
 }
@@ -321,7 +407,7 @@ Examples:
 				}
 			}
 
-			// Create scanner
+			// Create scanner with optimized settings
 			scanner := network.NewScanner()
 
 			fmt.Printf("👀 Monitoring %d hosts on %d ports (Ctrl+C to stop)\n", len(hosts), len(ports))
