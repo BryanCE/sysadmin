@@ -277,9 +277,11 @@ func (s *Scanner) ScanPorts(ctx context.Context, target string, ports []int) (*H
 }
 
 // NetworkDiscovery performs network discovery with port scanning using optimized batching
-func (s *Scanner) NetworkDiscovery(ctx context.Context, network string, ports []int) (*ScanResult, error) {
+func (s *Scanner) NetworkDiscovery(ctx context.Context, network string, ports []int, suppressProgress bool) (*ScanResult, error) {
 	start := time.Now()
-	fmt.Printf("🔍 Network discovery on %s\n", network)
+	if !suppressProgress {
+		fmt.Printf("🔍 Network discovery on %s\n", network)
+	}
 
 	ips, err := s.generateIPs(network)
 	if err != nil {
@@ -370,10 +372,12 @@ func (s *Scanner) NetworkDiscovery(ctx context.Context, network string, ports []
 		resultsMutex.Unlock()
 
 		batchElapsed := time.Since(batchStart)
-		fmt.Printf("📈 Batch %d/%d: %d hosts found in %v\n",
-			(i/s.batchSize)+1, (len(ips)+s.batchSize-1)/s.batchSize,
-			len(batchHosts), batchElapsed)
-		os.Stdout.Sync() // Force flush output
+		if !suppressProgress {
+			fmt.Printf("📈 Batch %d/%d: %d hosts found in %v\n",
+				(i/s.batchSize)+1, (len(ips)+s.batchSize-1)/s.batchSize,
+				len(batchHosts), batchElapsed)
+			os.Stdout.Sync() // Force flush output
+		}
 	}
 
 	duration := time.Since(start)
@@ -557,26 +561,26 @@ func (s *Scanner) pingHostFast(ctx context.Context, ip string) bool {
 	}
 }
 
-// scanPort scans a single port on a host (legacy method for compatibility)
-func (s *Scanner) scanPort(host string, port int) PortResult {
-	target := fmt.Sprintf("%s:%d", host, port)
+// // scanPort scans a single port on a host (legacy method for compatibility)
+// func (s *Scanner) scanPort(host string, port int) PortResult {
+// 	target := fmt.Sprintf("%s:%d", host, port)
 
-	conn, err := net.DialTimeout("tcp", target, s.timeout)
-	if err != nil {
-		return PortResult{Port: port, Open: false}
-	}
-	defer conn.Close()
+// 	conn, err := net.DialTimeout("tcp", target, s.timeout)
+// 	if err != nil {
+// 		return PortResult{Port: port, Open: false}
+// 	}
+// 	defer conn.Close()
 
-	service := commonServices[port]
-	banner := s.grabBanner(conn, port)
+// 	service := commonServices[port]
+// 	banner := s.grabBanner(conn, port)
 
-	return PortResult{
-		Port:    port,
-		Open:    true,
-		Service: service,
-		Banner:  banner,
-	}
-}
+// 	return PortResult{
+// 		Port:    port,
+// 		Open:    true,
+// 		Service: service,
+// 		Banner:  banner,
+// 	}
+// }
 
 // scanPortFast scans a single port with optimized timeout
 func (s *Scanner) scanPortFast(host string, port int) PortResult {
@@ -600,42 +604,42 @@ func (s *Scanner) scanPortFast(host string, port int) PortResult {
 	}
 }
 
-// grabBanner attempts to grab a service banner (legacy method)
-func (s *Scanner) grabBanner(conn net.Conn, port int) string {
-	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+// // grabBanner attempts to grab a service banner (legacy method)
+// func (s *Scanner) grabBanner(conn net.Conn, port int) string {
+// 	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 
-	// Send appropriate probe based on port
-	switch port {
-	case 22:
-		// SSH typically sends banner immediately
-	case 80, 8080:
-		conn.Write([]byte("GET / HTTP/1.1\r\nHost: \r\nConnection: close\r\n\r\n"))
-	case 25:
-		// SMTP sends banner immediately
-	case 21:
-		// FTP sends banner immediately
-	case 443:
-		// HTTPS - don't try to grab banner as it requires TLS handshake
-		return ""
-	}
+// 	// Send appropriate probe based on port
+// 	switch port {
+// 	case 22:
+// 		// SSH typically sends banner immediately
+// 	case 80, 8080:
+// 		conn.Write([]byte("GET / HTTP/1.1\r\nHost: \r\nConnection: close\r\n\r\n"))
+// 	case 25:
+// 		// SMTP sends banner immediately
+// 	case 21:
+// 		// FTP sends banner immediately
+// 	case 443:
+// 		// HTTPS - don't try to grab banner as it requires TLS handshake
+// 		return ""
+// 	}
 
-	buffer := make([]byte, 512)
-	n, err := conn.Read(buffer)
-	if err != nil {
-		return ""
-	}
+// 	buffer := make([]byte, 512)
+// 	n, err := conn.Read(buffer)
+// 	if err != nil {
+// 		return ""
+// 	}
 
-	banner := string(buffer[:n])
-	banner = strings.ReplaceAll(banner, "\r\n", " ")
-	banner = strings.ReplaceAll(banner, "\n", " ")
-	banner = strings.TrimSpace(banner)
+// 	banner := string(buffer[:n])
+// 	banner = strings.ReplaceAll(banner, "\r\n", " ")
+// 	banner = strings.ReplaceAll(banner, "\n", " ")
+// 	banner = strings.TrimSpace(banner)
 
-	if len(banner) > 40 {
-		banner = banner[:40] + "..."
-	}
+// 	if len(banner) > 40 {
+// 		banner = banner[:40] + "..."
+// 	}
 
-	return banner
-}
+// 	return banner
+// }
 
 // grabBannerFast grabs banners with shorter timeout for speed
 func (s *Scanner) grabBannerFast(conn net.Conn, port int) string {

@@ -235,35 +235,38 @@ Examples:
 			defer cancel()
 
 			// Perform network discovery
-			result, err := scanner.NetworkDiscovery(ctx, networkCIDR, ports)
+			// Suppress progress output for structured formats to avoid corrupting JSON/CSV/XML
+			suppressProgress := formatFlag == "json" || formatFlag == "csv" || formatFlag == "xml"
+			result, err := scanner.NetworkDiscovery(ctx, networkCIDR, ports, suppressProgress)
 			if err != nil {
 				return fmt.Errorf("network discovery failed: %w", err)
 			}
 
-			// Display results
 			// Format and display results using the formatter
 			formatter := output.NewFormatter(output.OutputFormat(formatFlag))
-			return formatter.FormatScanResult(result, os.Stdout)
-			fmt.Printf("📊 Found %d live hosts out of %d scanned:\n\n", result.Summary.LiveHosts, result.Summary.TotalHosts)
+			if err := formatter.FormatScanResult(result, os.Stdout); err != nil {
+				// If formatter fails, fall back to basic output
+				fmt.Printf("📊 Found %d live hosts out of %d scanned:\n\n", result.Summary.LiveHosts, result.Summary.TotalHosts)
 
-			for _, host := range result.Hosts {
-				fmt.Printf("��️  %s\n", host.IP)
-				if len(host.Ports) > 0 {
-					for _, port := range host.Ports {
-						service := port.Service
-						if service == "" {
-							service = "Unknown"
+				for _, host := range result.Hosts {
+					fmt.Printf("🖥️  %s\n", host.IP)
+					if len(host.Ports) > 0 {
+						for _, port := range host.Ports {
+							service := port.Service
+							if service == "" {
+								service = "Unknown"
+							}
+							fmt.Printf("   🟢 %-5d %-12s", port.Port, service)
+							if port.Banner != "" {
+								fmt.Printf(" - %s", port.Banner)
+							}
+							fmt.Println()
 						}
-						fmt.Printf("   🟢 %-5d %-12s", port.Port, service)
-						if port.Banner != "" {
-							fmt.Printf(" - %s", port.Banner)
-						}
-						fmt.Println()
+					} else {
+						fmt.Printf("   📝 Host alive but no open ports found in scanned range\n")
 					}
-				} else {
-					fmt.Printf("   📝 Host alive but no open ports found in scanned range\n")
+					fmt.Println()
 				}
-				fmt.Println()
 			}
 
 			return nil
