@@ -1,4 +1,4 @@
-# SysTool - DNS & SSL Swiss Army Knife
+# SysTool - DNS, SSL & Network Swiss Army Knife
 
 A comprehensive command-line tool for network administrators and security professionals. SysTool provides advanced DNS analysis, SSL certificate validation, and DNSSEC verification capabilities.
 
@@ -20,59 +20,20 @@ A comprehensive command-line tool for network administrators and security profes
   - Validate DS records and DNSKEY records
   - Check chain of trust
 
+- **Network Operations**
+  - TCP ping sweep for host discovery
+  - Port scanning with service detection
+  - Network discovery combining host and port scanning
+  - Continuous port monitoring for service availability
+  - Support for CIDR notation and port ranges
+  - Banner grabbing and service identification
+
 - **Multiple Output Formats**
   - Table (default, human-readable)
   - JSON (machine-readable)
   - CSV (spreadsheet-friendly)
   - XML (structured data)
 
-## Installation
-
-### Prerequisites
-
-- Go 1.24.0 or later
-
-### Building from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/bryanCE/sysadmin.git
-cd sysadmin
-
-# Install dependencies
-make deps
-
-# Build for current platform
-make build
-
-# Build for all platforms
-make build-all
-
-# Install to GOPATH/bin
-make install
-```
-
-### Development Setup
-
-```bash
-# Install development dependencies
-make dev-deps
-
-# Run tests
-make test
-
-# Run tests with coverage
-make test-coverage
-
-# Format code
-make fmt
-
-# Run linter
-make lint
-
-# Run all quality checks
-make check
-```
 
 ## Usage
 
@@ -184,6 +145,89 @@ systool dnssec example.com --nameserver 8.8.8.8
 # Output as JSON
 systool dnssec example.com --format json
 ```
+
+### Network Commands
+
+#### Ping Sweep
+
+Discover live hosts on a network using TCP ping sweep:
+
+```bash
+# Basic ping sweep on /24 network
+systool network ping 192.168.1.0/24
+
+# Custom timeout and concurrency
+systool network ping 10.0.0.0/24 --timeout 5s --concurrency 50
+
+# Output as JSON
+systool network ping 172.16.0.0/24 --format json
+```
+
+#### Port Scanning
+
+Scan specific ports on target hosts:
+
+```bash
+# Scan common ports
+systool network portscan 192.168.1.1 22,80,443
+
+# Scan port range
+systool network portscan example.com 1-1000
+
+# Scan with custom timeout
+systool network portscan 10.0.0.1 80,443,8080,8443 --timeout 5s
+
+# High concurrency scan
+systool network portscan target.com 1-65535 --concurrency 100
+```
+
+#### Network Discovery
+
+Combine host discovery with port scanning for comprehensive network mapping:
+
+```bash
+# Discover hosts and scan common ports
+systool network discovery 192.168.1.0/24 22,80,443
+
+# Full port range discovery
+systool network discovery 10.0.0.0/24 1-1000
+
+# Custom services discovery
+systool network discovery 172.16.0.0/24 80,443,8080,3389,22 --concurrency 50
+
+# Output as JSON for automation
+systool network discovery 192.168.0.0/24 22,80,443 --format json
+```
+
+#### Port Monitoring
+
+Continuously monitor specific ports on target hosts:
+
+```bash
+# Monitor web services
+systool network monitor 192.168.1.1,192.168.1.2 80,443
+
+# Monitor multiple hosts and services
+systool network monitor example.com,google.com 80,443,22
+
+# Custom monitoring interval
+systool network monitor 10.0.0.1 3389,22,80 --interval 60s
+
+# Monitor with different check frequency
+systool network monitor server1.local,server2.local 22,80,443,3306 --interval 5m
+```
+
+**Supported Port Formats:**
+- Single ports: `80,443,22`
+- Port ranges: `1-1000`, `8000-9000`
+- Mixed: `22,80,443,8000-8100`
+
+**Common Services Detected:**
+- FTP (21), SSH (22), Telnet (23), SMTP (25)
+- DNS (53), HTTP (80), POP3 (110), IMAP (143)
+- HTTPS (443), SMB (445), MSSQL (1433), MySQL (3306)
+- RDP (3389), PostgreSQL (5432), VNC (5900), Redis (6379)
+- HTTP-Alt (8080), Elasticsearch (9200)
 
 ## Output Formats
 
@@ -315,6 +359,35 @@ systool bulk query domains.txt A --format csv > results.csv
 for domain in $(cat domains.txt); do
   systool ssl-check $domain --format json >> ssl_results.json
 done
+```
+
+#### 5. Network Discovery and Scanning
+
+```bash
+# Discover live hosts on your local network
+systool network ping 192.168.1.0/24
+
+# Scan common ports on a specific host
+systool network portscan 192.168.1.1 22,80,443,3389
+
+# Full network discovery with port scanning
+systool network discovery 10.0.0.0/24 22,80,443,8080
+
+# Monitor critical services continuously
+systool network monitor server1.local,server2.local 22,80,443 --interval 5m
+```
+
+#### 6. Security Assessment
+
+```bash
+# Quick security scan of a target
+systool network portscan target.example.com 21,22,23,25,53,80,110,143,443,993,995
+
+# Comprehensive network mapping
+systool network discovery 172.16.0.0/24 1-1000 --concurrency 50 --format json > network_map.json
+
+# Monitor for unauthorized services
+systool network monitor 192.168.1.0/24 1337,4444,5555 --interval 1m
 ```
 
 ### Advanced Usage
