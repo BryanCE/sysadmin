@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDNSSECVerifyCommand creates the dnssec-verify subcommand
+// NewDNSSECVerifyCommand creates the dnssec subcommand
 func NewDNSSECVerifyCommand() *cobra.Command {
 	var (
 		nameserverFlag string
@@ -21,7 +21,7 @@ func NewDNSSECVerifyCommand() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "dnssec-verify [domain]",
+		Use:   "dnssec [domain]",
 		Short: "Verify DNSSEC configuration",
 		Long: `Perform comprehensive DNSSEC validation for a domain.
 Checks DS records, DNSKEY records, and validates the chain of trust.`,

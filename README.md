@@ -176,13 +176,13 @@ Verify DNSSEC configuration:
 
 ```bash
 # Verify DNSSEC
-systool dnssec-verify example.com
+systool dnssec example.com
 
 # Use specific nameserver
-systool dnssec-verify example.com --nameserver 8.8.8.8
+systool dnssec example.com --nameserver 8.8.8.8
 
 # Output as JSON
-systool dnssec-verify example.com --format json
+systool dnssec example.com --format json
 ```
 
 ## Output Formats
@@ -275,7 +275,7 @@ systool propagation mysite.com A
 systool consistency mysite.com
 
 # Verify DNSSEC is working
-systool dnssec-verify mysite.com
+systool dnssec mysite.com
 ```
 
 #### 2. SSL Certificate Monitoring
@@ -359,7 +359,7 @@ systool ssl-check "$DOMAIN"
 
 # Check DNSSEC
 echo -e "\n5. DNSSEC Verification:"
-systool dnssec-verify "$DOMAIN"
+systool dnssec "$DOMAIN"
 ```
 
 ## Configuration
@@ -439,93 +439,8 @@ systool ssl-check example.com --format json | jq '.issuer'
 
 ```bash
 # Check if DNSSEC is enabled
-systool dnssec-verify example.com --format json | jq '.has_dnssec'
+systool dnssec example.com --format json | jq '.has_dnssec'
 
 # Use different nameserver
-systool dnssec-verify example.com --nameserver 1.1.1.1
+systool dnssec example.com --nameserver 1.1.1.1
 ```
-
-### Debug Mode
-
-For detailed debugging information, use verbose output:
-
-```bash
-# Enable verbose logging (if implemented)
-SYSTOOL_DEBUG=1 systool query example.com A
-```
-
-## Contributing
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make changes and add tests
-4. Run quality checks: `make check`
-5. Commit changes: `git commit -am 'Add feature'`
-6. Push to branch: `git push origin feature-name`
-7. Create a Pull Request
-
-### Code Quality
-
-The project maintains high code quality standards:
-
-```bash
-# Run all quality checks
-make check
-
-# Individual checks
-make fmt      # Format code
-make vet      # Run go vet
-make lint     # Run golangci-lint
-make test     # Run tests
-```
-
-### Testing
-
-```bash
-# Run tests
-make test
-
-# Run tests with coverage
-make test-coverage
-
-# View coverage report
-open coverage.html
-```
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-- **Issues**: Report bugs and request features on [GitHub Issues](https://github.com/bryanCE/sysadmin/issues)
-- **Documentation**: Additional documentation available in the `/docs` directory
-- **Examples**: More examples available in the `/examples` directory
-
-## Changelog
-
-### v1.0.1 (Current)
-
-- Initial release
-- DNS query, propagation, and consistency checking
-- SSL certificate validation
-- DNSSEC verification
-- Multiple output formats (table, JSON, CSV, XML)
-- Bulk operations support
-- Cross-platform builds
-
-## Roadmap
-
-- [ ] DNS zone file analysis
-- [ ] Certificate transparency log checking
-- [ ] DNS over HTTPS (DoH) support
-- [ ] DNS over TLS (DoT) support
-- [ ] Web interface
-- [ ] Monitoring and alerting capabilities
-- [ ] Integration with popular monitoring systems
-
----
-
-**SysTool** - Making DNS and SSL management simple and reliable.
