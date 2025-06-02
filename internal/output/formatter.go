@@ -13,6 +13,7 @@ import (
 
 	"github.com/bryanCE/sysadmin/internal/dns"
 	"github.com/bryanCE/sysadmin/internal/dnssec"
+	"github.com/bryanCE/sysadmin/internal/network"
 	"github.com/bryanCE/sysadmin/internal/ssl"
 )
 
@@ -109,6 +110,15 @@ func (f *Formatter) FormatBulkSummary(summary *dns.BulkSummary, writer io.Writer
 // SSL-specific formatting methods
 func (f *Formatter) FormatCertInfo(info *ssl.CertInfo, writer io.Writer) error {
 	return f.FormatData(info, writer, f.formatCertInfoTable, f.formatCertInfoCSV)
+}
+
+// Network-specific formatting methods
+func (f *Formatter) FormatScanResult(result *network.ScanResult, writer io.Writer) error {
+	return f.FormatData(result, writer, f.formatScanResultTable, f.formatScanResultCSV)
+}
+
+func (f *Formatter) FormatHostResult(result *network.HostResult, writer io.Writer) error {
+	return f.FormatData(result, writer, f.formatHostResultTable, f.formatHostResultCSV)
 }
 
 // DNSSEC-specific formatting methods
@@ -313,6 +323,66 @@ func (f *Formatter) formatCertInfoTable(data interface{}, writer io.Writer) erro
 	}
 
 	return f.createAndRenderTable([]string{"Field", "Value"}, rows, writer)
+}
+
+func (f *Formatter) formatScanResultTable(data interface{}, writer io.Writer) error {
+	result := data.(*network.ScanResult)
+	fmt.Fprintf(writer, "🔍 Network Discovery Results for %s\n", result.Network)
+	fmt.Fprintf(writer, "📊 Found %d live hosts out of %d scanned\n", result.Summary.LiveHosts, result.Summary.TotalHosts)
+	fmt.Fprintf(writer, "⏱️  Duration: %v\n", result.Duration)
+	fmt.Fprintf(writer, "🕐 Completed at: %s\n\n", result.StartTime.Add(result.Duration).Format("2006-01-02 15:04:05"))
+
+	if len(result.Hosts) == 0 {
+		fmt.Fprintf(writer, "No live hosts found.\n")
+		return nil
+	}
+
+	for _, host := range result.Hosts {
+		fmt.Fprintf(writer, "🖥️  %s\n", host.IP)
+		if len(host.Ports) > 0 {
+			for _, port := range host.Ports {
+				service := port.Service
+				if service == "" {
+					service = "Unknown"
+				}
+				fmt.Fprintf(writer, "   🟢 %-5d %-12s", port.Port, service)
+				if port.Banner != "" {
+					fmt.Fprintf(writer, " - %s", port.Banner)
+				}
+				fmt.Fprintf(writer, "\n")
+			}
+		} else {
+			fmt.Fprintf(writer, "   📝 Host alive but no open ports found in scanned range\n")
+		}
+		fmt.Fprintf(writer, "\n")
+	}
+
+	return nil
+}
+
+func (f *Formatter) formatHostResultTable(data interface{}, writer io.Writer) error {
+	result := data.(*network.HostResult)
+	fmt.Fprintf(writer, "🔍 Port Scan Results for %s\n", result.IP)
+	fmt.Fprintf(writer, "📊 Found %d open ports\n\n", len(result.Ports))
+
+	if len(result.Ports) == 0 {
+		fmt.Fprintf(writer, "No open ports found.\n")
+		return nil
+	}
+
+	for _, port := range result.Ports {
+		service := port.Service
+		if service == "" {
+			service = "Unknown"
+		}
+		fmt.Fprintf(writer, "🟢 Port %-5d %-12s", port.Port, service)
+		if port.Banner != "" {
+			fmt.Fprintf(writer, " - %s", port.Banner)
+		}
+		fmt.Fprintf(writer, "\n")
+	}
+
+	return nil
 }
 
 func (f *Formatter) formatDNSSECResultTable(data interface{}, writer io.Writer) error {
@@ -617,6 +687,89 @@ func (f *Formatter) formatCertInfoCSV(data interface{}, writer io.Writer) error 
 		strings.Join(info.DNSNames, ";"),
 	}
 	return csvWriter.Write(row)
+}
+
+func (f *Formatter) formatScanResultCSV(data interface{}, writer io.Writer) error {
+	result := data.(*network.ScanResult)
+	csvWriter := f.createCSVWriter(writer)
+	defer csvWriter.Flush()
+
+	// Write header
+	header := []string{"Network", "IP", "Alive", "Port", "Open", "Service", "Banner", "Duration", "TotalHosts", "LiveHosts"}
+	if err := csvWriter.Write(header); err != nil {
+		return err
+	}
+
+	// Write data
+	for _, host := range result.Hosts {
+		if len(host.Ports) > 0 {
+			for _, port := range host.Ports {
+				row := []string{
+					result.Network,
+					host.IP,
+					fmt.Sprintf("%t", host.Alive),
+					fmt.Sprintf("%d", port.Port),
+					fmt.Sprintf("%t", port.Open),
+					port.Service,
+					port.Banner,
+					result.Duration.String(),
+					fmt.Sprintf("%d", result.Summary.TotalHosts),
+					fmt.Sprintf("%d", result.Summary.LiveHosts),
+				}
+				if err := csvWriter.Write(row); err != nil {
+					return err
+				}
+			}
+		} else {
+			// Host alive but no open ports
+			row := []string{
+				result.Network,
+				host.IP,
+				fmt.Sprintf("%t", host.Alive),
+				"-",
+				"false",
+				"-",
+				"-",
+				result.Duration.String(),
+				fmt.Sprintf("%d", result.Summary.TotalHosts),
+				fmt.Sprintf("%d", result.Summary.LiveHosts),
+			}
+			if err := csvWriter.Write(row); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (f *Formatter) formatHostResultCSV(data interface{}, writer io.Writer) error {
+	result := data.(*network.HostResult)
+	csvWriter := f.createCSVWriter(writer)
+	defer csvWriter.Flush()
+
+	// Write header
+	header := []string{"IP", "Alive", "Port", "Open", "Service", "Banner"}
+	if err := csvWriter.Write(header); err != nil {
+		return err
+	}
+
+	// Write data
+	for _, port := range result.Ports {
+		row := []string{
+			result.IP,
+			fmt.Sprintf("%t", result.Alive),
+			fmt.Sprintf("%d", port.Port),
+			fmt.Sprintf("%t", port.Open),
+			port.Service,
+			port.Banner,
+		}
+		if err := csvWriter.Write(row); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (f *Formatter) formatDNSSECResultCSV(data interface{}, writer io.Writer) error {

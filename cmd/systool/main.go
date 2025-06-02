@@ -33,6 +33,9 @@ and SSL certificate validation and analysis.`,
 	// Add DNSSEC subcommands
 	rootCmd.AddCommand(cli.NewDNSSECVerifyCommand())
 
+	// Add Network subcommands
+	rootCmd.AddCommand(cli.NewNetworkCommand())
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
