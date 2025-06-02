@@ -1,6 +1,6 @@
-# DNS Swiss Army Knife - Build Configuration
+# System Administration Tool - Build Configuration
 BINARY_NAME=systool
-MAIN_PATH=./cmd/dns-tool
+MAIN_PATH=./cmd/systool
 VERSION?=1.0.1
 BUILD_TIME=$(shell go run -e "fmt.Print(time.Now().UTC().Format(\"2006-01-02_15:04:05\"))" 2>/dev/null || echo "unknown")
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
