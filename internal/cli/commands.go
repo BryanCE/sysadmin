@@ -109,12 +109,20 @@ Useful for verifying that DNS changes have propagated correctly.`,
 			// Get nameservers
 			var ns []string
 			if providerFlag != "" {
-				providers := strings.Split(providerFlag, ",")
-				for _, provider := range providers {
-					provider = strings.TrimSpace(provider)
-					servers := nameservers.GetProviderNameservers(provider)
-					for _, server := range servers {
+				if strings.TrimSpace(strings.ToLower(providerFlag)) == "all" {
+					// Use all available nameservers
+					allServers := nameservers.GetAllNameservers()
+					for _, server := range allServers {
 						ns = append(ns, server.IP.String())
+					}
+				} else {
+					providers := strings.Split(providerFlag, ",")
+					for _, provider := range providers {
+						provider = strings.TrimSpace(provider)
+						servers := nameservers.GetProviderNameservers(provider)
+						for _, server := range servers {
+							ns = append(ns, server.IP.String())
+						}
 					}
 				}
 			}
@@ -160,7 +168,7 @@ Useful for verifying that DNS changes have propagated correctly.`,
 	}
 
 	// Add flags
-	cmd.Flags().StringVarP(&providerFlag, "providers", "p", "", "DNS providers to check (comma-separated: google,cloudflare,quad9,opendns)")
+	cmd.Flags().StringVarP(&providerFlag, "providers", "p", "", "DNS providers to check (comma-separated: google,cloudflare,quad9,opendns) or 'all' for all providers")
 	cmd.Flags().StringVarP(&formatFlag, "format", "f", "table", "Output format (table, json, csv, xml)")
 
 	return cmd
@@ -185,12 +193,20 @@ Identifies misconfigurations, inconsistencies, and potential problems.`,
 			// Get nameservers
 			var ns []string
 			if providerFlag != "" {
-				providers := strings.Split(providerFlag, ",")
-				for _, provider := range providers {
-					provider = strings.TrimSpace(provider)
-					servers := nameservers.GetProviderNameservers(provider)
-					for _, server := range servers {
+				if strings.TrimSpace(strings.ToLower(providerFlag)) == "all" {
+					// Use all available nameservers
+					allServers := nameservers.GetAllNameservers()
+					for _, server := range allServers {
 						ns = append(ns, server.IP.String())
+					}
+				} else {
+					providers := strings.Split(providerFlag, ",")
+					for _, provider := range providers {
+						provider = strings.TrimSpace(provider)
+						servers := nameservers.GetProviderNameservers(provider)
+						for _, server := range servers {
+							ns = append(ns, server.IP.String())
+						}
 					}
 				}
 			}
@@ -237,7 +253,7 @@ Identifies misconfigurations, inconsistencies, and potential problems.`,
 	}
 
 	// Add flags
-	cmd.Flags().StringVarP(&providerFlag, "providers", "p", "", "DNS providers to check (comma-separated: google,cloudflare,quad9,opendns)")
+	cmd.Flags().StringVarP(&providerFlag, "providers", "p", "", "DNS providers to check (comma-separated: google,cloudflare,quad9,opendns) or 'all' for all providers")
 	cmd.Flags().StringVarP(&formatFlag, "format", "f", "table", "Output format (table, json, csv, xml)")
 
 	return cmd
@@ -382,12 +398,20 @@ The file should contain one domain per line.`,
 			// Get nameservers
 			var ns []string
 			if providerFlag != "" {
-				providers := strings.Split(providerFlag, ",")
-				for _, provider := range providers {
-					provider = strings.TrimSpace(provider)
-					servers := nameservers.GetProviderNameservers(provider)
-					for _, server := range servers {
+				if strings.TrimSpace(strings.ToLower(providerFlag)) == "all" {
+					// Use all available nameservers
+					allServers := nameservers.GetAllNameservers()
+					for _, server := range allServers {
 						ns = append(ns, server.IP.String())
+					}
+				} else {
+					providers := strings.Split(providerFlag, ",")
+					for _, provider := range providers {
+						provider = strings.TrimSpace(provider)
+						servers := nameservers.GetProviderNameservers(provider)
+						for _, server := range servers {
+							ns = append(ns, server.IP.String())
+						}
 					}
 				}
 			}
@@ -447,7 +471,7 @@ The file should contain one domain per line.`,
 	}
 
 	// Add flags
-	cmd.Flags().StringVarP(&providerFlag, "providers", "p", "", "DNS providers to check (comma-separated: google,cloudflare,quad9,opendns)")
+	cmd.Flags().StringVarP(&providerFlag, "providers", "p", "", "DNS providers to check (comma-separated: google,cloudflare,quad9,opendns) or 'all' for all providers")
 	cmd.Flags().StringVarP(&formatFlag, "format", "f", "table", "Output format (table, json, csv, xml)")
 	cmd.Flags().IntVarP(&concurrencyFlag, "concurrency", "c", 3, "Number of concurrent checks")
 
@@ -480,12 +504,20 @@ The file should contain one domain per line.`,
 			// Get nameservers
 			var ns []string
 			if providerFlag != "" {
-				providers := strings.Split(providerFlag, ",")
-				for _, provider := range providers {
-					provider = strings.TrimSpace(provider)
-					servers := nameservers.GetProviderNameservers(provider)
-					for _, server := range servers {
+				if strings.TrimSpace(strings.ToLower(providerFlag)) == "all" {
+					// Use all available nameservers
+					allServers := nameservers.GetAllNameservers()
+					for _, server := range allServers {
 						ns = append(ns, server.IP.String())
+					}
+				} else {
+					providers := strings.Split(providerFlag, ",")
+					for _, provider := range providers {
+						provider = strings.TrimSpace(provider)
+						servers := nameservers.GetProviderNameservers(provider)
+						for _, server := range servers {
+							ns = append(ns, server.IP.String())
+						}
 					}
 				}
 			}
@@ -545,7 +577,7 @@ The file should contain one domain per line.`,
 	}
 
 	// Add flags
-	cmd.Flags().StringVarP(&providerFlag, "providers", "p", "", "DNS providers to check (comma-separated: google,cloudflare,quad9,opendns)")
+	cmd.Flags().StringVarP(&providerFlag, "providers", "p", "", "DNS providers to check (comma-separated: google,cloudflare,quad9,opendns) or 'all' for all providers")
 	cmd.Flags().StringVarP(&formatFlag, "format", "f", "table", "Output format (table, json, csv, xml)")
 	cmd.Flags().IntVarP(&concurrencyFlag, "concurrency", "c", 2, "Number of concurrent checks")
 

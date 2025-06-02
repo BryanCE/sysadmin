@@ -193,7 +193,7 @@ func (f *Formatter) formatPropagationResultTable(data interface{}, writer io.Wri
 		valueStr := strings.Join(values, ", ")
 
 		rows = append(rows, []string{
-			nameserver,
+			f.getNameserverDisplayName(nameserver),
 			status,
 			recordCount,
 			truncateString(valueStr, 60),
@@ -877,6 +877,48 @@ func (f *Formatter) formatDNSSECResultCSV(data interface{}, writer io.Writer) er
 }
 
 // Utility functions
+// getNameserverDisplayName creates a display name with both nameserver name and IP
+func (f *Formatter) getNameserverDisplayName(ip string) string {
+	// Create a mapping of common nameservers
+	nameserverNames := map[string]string{
+		"8.8.8.8":         "google-dns1",
+		"8.8.4.4":         "google-dns2",
+		"1.1.1.1":         "cloudflare-dns1",
+		"1.0.0.1":         "cloudflare-dns2",
+		"9.9.9.9":         "quad9-dns1",
+		"149.112.112.112": "quad9-dns2",
+		"208.67.222.222":  "opendns1",
+		"208.67.220.220":  "opendns2",
+		"173.201.71.1":    "godaddy-dns1",
+		"173.201.71.12":   "godaddy-dns2",
+		"198.185.159.144": "squarespace-dns1",
+		"198.185.159.145": "squarespace-dns2",
+		"198.54.120.19":   "namecheap-dns1",
+		"198.54.117.10":   "namecheap-dns2",
+		"216.146.35.35":   "dyn-dns1",
+		"216.146.36.36":   "dyn-dns2",
+		"8.26.56.26":      "comodo-dns1",
+		"8.20.247.20":     "comodo-dns2",
+		"64.6.64.6":       "verisign-dns1",
+		"64.6.65.6":       "verisign-dns2",
+		"94.140.14.14":    "adguard-dns1",
+		"94.140.15.15":    "adguard-dns2",
+		"185.228.168.9":   "cleanbrowing-dns1",
+		"185.228.169.9":   "cleanbrowing-dns2",
+		"76.76.19.19":     "alternate-dns1",
+		"76.223.100.101":  "alternate-dns2",
+		"209.244.0.3":     "level3-dns1",
+		"209.244.0.4":     "level3-dns2",
+	}
+
+	if name, exists := nameserverNames[ip]; exists {
+		return fmt.Sprintf("%-15s %s", ip, name)
+	}
+
+	// If not found in our mapping, just return the IP
+	return ip
+}
+
 func truncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
