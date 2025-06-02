@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/bryanCE/sysadmin/internal/dns"
+	"github.com/bryanCE/sysadmin/internal/dnssec"
+	"github.com/bryanCE/sysadmin/internal/ssl"
 )
 
 // OutputFormat represents the output format type
@@ -34,64 +36,89 @@ func NewFormatter(format OutputFormat) *Formatter {
 	return &Formatter{format: format}
 }
 
-// FormatQueryResult formats a single DNS query result
+// FormatData is a generic method that handles all format types
+func (f *Formatter) FormatData(data interface{}, writer io.Writer, tableFormatter func(interface{}, io.Writer) error, csvFormatter func(interface{}, io.Writer) error) error {
+	switch f.format {
+	case FormatJSON:
+		return f.formatJSON(data, writer)
+	case FormatCSV:
+		if csvFormatter != nil {
+			return csvFormatter(data, writer)
+		}
+		return fmt.Errorf("CSV formatting not implemented for this data type")
+	case FormatXML:
+		return f.formatXML(data, writer)
+	default:
+		if tableFormatter != nil {
+			return tableFormatter(data, writer)
+		}
+		return fmt.Errorf("table formatting not implemented for this data type")
+	}
+}
+
+// Generic JSON formatter
+func (f *Formatter) formatJSON(data interface{}, writer io.Writer) error {
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(data)
+}
+
+// Generic XML formatter
+func (f *Formatter) formatXML(data interface{}, writer io.Writer) error {
+	encoder := xml.NewEncoder(writer)
+	encoder.Indent("", "  ")
+	return encoder.Encode(data)
+}
+
+// CSV writer helper
+func (f *Formatter) createCSVWriter(writer io.Writer) *csv.Writer {
+	csvWriter := csv.NewWriter(writer)
+	return csvWriter
+}
+
+// Table helper for creating and rendering tables
+func (f *Formatter) createAndRenderTable(headers []string, rows [][]string, writer io.Writer) error {
+	table := NewTable(headers)
+	for _, row := range rows {
+		table.AddRow(row)
+	}
+	return table.Render(writer)
+}
+
+// DNS-specific formatting methods
 func (f *Formatter) FormatQueryResult(result *dns.DNSResult, writer io.Writer) error {
-	switch f.format {
-	case FormatJSON:
-		return f.formatQueryResultJSON(result, writer)
-	case FormatCSV:
-		return f.formatQueryResultCSV(result, writer)
-	case FormatXML:
-		return f.formatQueryResultXML(result, writer)
-	default:
-		return f.formatQueryResultTable(result, writer)
-	}
+	return f.FormatData(result, writer, f.formatQueryResultTable, f.formatQueryResultCSV)
 }
 
-// FormatPropagationResult formats DNS propagation check results
 func (f *Formatter) FormatPropagationResult(result *dns.PropagationResult, writer io.Writer) error {
-	switch f.format {
-	case FormatJSON:
-		return json.NewEncoder(writer).Encode(result)
-	case FormatCSV:
-		return f.formatPropagationResultCSV(result, writer)
-	case FormatXML:
-		return xml.NewEncoder(writer).Encode(result)
-	default:
-		return f.formatPropagationResultTable(result, writer)
-	}
+	return f.FormatData(result, writer, f.formatPropagationResultTable, f.formatPropagationResultCSV)
 }
 
-// FormatConsistencyIssues formats DNS consistency issues
 func (f *Formatter) FormatConsistencyIssues(issues []dns.ConsistencyIssue, writer io.Writer) error {
-	switch f.format {
-	case FormatJSON:
-		return json.NewEncoder(writer).Encode(issues)
-	case FormatCSV:
-		return f.formatConsistencyIssuesCSV(issues, writer)
-	case FormatXML:
-		return xml.NewEncoder(writer).Encode(issues)
-	default:
-		return f.formatConsistencyIssuesTable(issues, writer)
-	}
+	return f.FormatData(issues, writer, f.formatConsistencyIssuesTable, f.formatConsistencyIssuesCSV)
 }
 
-// FormatBulkResult formats bulk query results
 func (f *Formatter) FormatBulkResult(result *dns.BulkQueryResult, writer io.Writer) error {
-	switch f.format {
-	case FormatJSON:
-		return json.NewEncoder(writer).Encode(result)
-	case FormatCSV:
-		return f.formatBulkResultCSV(result, writer)
-	case FormatXML:
-		return xml.NewEncoder(writer).Encode(result)
-	default:
-		return f.formatBulkResultTable(result, writer)
-	}
+	return f.FormatData(result, writer, f.formatBulkResultTable, f.formatBulkResultCSV)
+}
+
+func (f *Formatter) FormatBulkSummary(summary *dns.BulkSummary, writer io.Writer) error {
+	return f.FormatData(summary, writer, f.formatBulkSummaryTable, f.formatBulkSummaryCSV)
+}
+
+// SSL-specific formatting methods
+func (f *Formatter) FormatCertInfo(info *ssl.CertInfo, writer io.Writer) error {
+	return f.FormatData(info, writer, f.formatCertInfoTable, f.formatCertInfoCSV)
+}
+
+// DNSSEC-specific formatting methods
+func (f *Formatter) FormatDNSSECResult(result *dnssec.ValidationResult, writer io.Writer) error {
+	return f.FormatData(result, writer, f.formatDNSSECResultTable, f.formatDNSSECResultCSV)
 }
 
 // Table formatting methods
-func (f *Formatter) formatQueryResultTable(result *dns.DNSResult, writer io.Writer) error {
+func (f *Formatter) formatQueryResultTable(data interface{}, writer io.Writer) error {
+	result := data.(*dns.DNSResult)
 	if result.Error != nil {
 		fmt.Fprintf(writer, "❌ Query failed: %v\n", result.Error)
 		return nil
@@ -107,15 +134,14 @@ func (f *Formatter) formatQueryResultTable(result *dns.DNSResult, writer io.Writ
 		return nil
 	}
 
-	table := NewTable([]string{"Name", "Type", "Value", "TTL", "Priority"})
-	
+	var rows [][]string
 	for _, record := range result.Records {
 		priority := ""
 		if record.Priority > 0 {
 			priority = fmt.Sprintf("%d", record.Priority)
 		}
-		
-		table.AddRow([]string{
+
+		rows = append(rows, []string{
 			truncateString(record.Name, 40),
 			string(record.Type),
 			truncateString(record.Value, 50),
@@ -124,19 +150,20 @@ func (f *Formatter) formatQueryResultTable(result *dns.DNSResult, writer io.Writ
 		})
 	}
 
-	return table.Render(writer)
+	return f.createAndRenderTable([]string{"Name", "Type", "Value", "TTL", "Priority"}, rows, writer)
 }
 
-func (f *Formatter) formatPropagationResultTable(result *dns.PropagationResult, writer io.Writer) error {
+func (f *Formatter) formatPropagationResultTable(data interface{}, writer io.Writer) error {
+	result := data.(*dns.PropagationResult)
 	fmt.Fprintf(writer, "🌐 DNS Propagation Check for %s (%s)\n", result.Domain, result.RecordType)
 	fmt.Fprintf(writer, "📊 Checked %d servers, %d responded successfully\n", result.TotalServers, result.SuccessCount)
-	
+
 	if result.Inconsistent {
 		fmt.Fprintf(writer, "⚠️  Inconsistencies detected!\n")
 	} else {
 		fmt.Fprintf(writer, "✅ All servers are consistent\n")
 	}
-	
+
 	fmt.Fprintf(writer, "🕐 Checked at: %s\n\n", result.Timestamp.Format("2006-01-02 15:04:05"))
 
 	if len(result.Results) == 0 {
@@ -144,19 +171,18 @@ func (f *Formatter) formatPropagationResultTable(result *dns.PropagationResult, 
 		return nil
 	}
 
-	table := NewTable([]string{"Nameserver", "Status", "Records", "Values"})
-
+	var rows [][]string
 	for nameserver, records := range result.Results {
 		status := "✅ OK"
 		recordCount := fmt.Sprintf("%d", len(records))
-		
+
 		var values []string
 		for _, record := range records {
 			values = append(values, record.Value)
 		}
 		valueStr := strings.Join(values, ", ")
-		
-		table.AddRow([]string{
+
+		rows = append(rows, []string{
 			nameserver,
 			status,
 			recordCount,
@@ -164,10 +190,11 @@ func (f *Formatter) formatPropagationResultTable(result *dns.PropagationResult, 
 		})
 	}
 
-	return table.Render(writer)
+	return f.createAndRenderTable([]string{"Nameserver", "Status", "Records", "Values"}, rows, writer)
 }
 
-func (f *Formatter) formatConsistencyIssuesTable(issues []dns.ConsistencyIssue, writer io.Writer) error {
+func (f *Formatter) formatConsistencyIssuesTable(data interface{}, writer io.Writer) error {
+	issues := data.([]dns.ConsistencyIssue)
 	if len(issues) == 0 {
 		fmt.Fprintf(writer, "✅ No DNS consistency issues found!\n")
 		return nil
@@ -175,8 +202,7 @@ func (f *Formatter) formatConsistencyIssuesTable(issues []dns.ConsistencyIssue, 
 
 	fmt.Fprintf(writer, "🔍 DNS Consistency Issues Found: %d\n\n", len(issues))
 
-	table := NewTable([]string{"Severity", "Type", "Domain", "Record", "Description"})
-
+	var rows [][]string
 	for _, issue := range issues {
 		severity := ""
 		switch issue.Severity {
@@ -188,7 +214,7 @@ func (f *Formatter) formatConsistencyIssuesTable(issues []dns.ConsistencyIssue, 
 			severity = "🟢 LOW"
 		}
 
-		table.AddRow([]string{
+		rows = append(rows, []string{
 			severity,
 			issue.Type,
 			issue.Domain,
@@ -197,18 +223,18 @@ func (f *Formatter) formatConsistencyIssuesTable(issues []dns.ConsistencyIssue, 
 		})
 	}
 
-	return table.Render(writer)
+	return f.createAndRenderTable([]string{"Severity", "Type", "Domain", "Record", "Description"}, rows, writer)
 }
 
-func (f *Formatter) formatBulkResultTable(result *dns.BulkQueryResult, writer io.Writer) error {
+func (f *Formatter) formatBulkResultTable(data interface{}, writer io.Writer) error {
+	result := data.(*dns.BulkQueryResult)
 	fmt.Fprintf(writer, "📋 Bulk DNS Query Results\n")
-	fmt.Fprintf(writer, "📊 Total: %d | ✅ Success: %d | ❌ Failed: %d\n", 
+	fmt.Fprintf(writer, "📊 Total: %d | ✅ Success: %d | ❌ Failed: %d\n",
 		result.TotalQueries, result.SuccessfulQueries, result.FailedQueries)
 	fmt.Fprintf(writer, "⏱️  Duration: %v\n", result.Duration)
 	fmt.Fprintf(writer, "🕐 Completed at: %s\n\n", result.Timestamp.Format("2006-01-02 15:04:05"))
 
-	table := NewTable([]string{"Domain", "Status", "Records", "Response Time"})
-
+	var rows [][]string
 	for domain, queryResult := range result.Results {
 		status := "✅ OK"
 		recordCount := fmt.Sprintf("%d", len(queryResult.Records))
@@ -220,7 +246,7 @@ func (f *Formatter) formatBulkResultTable(result *dns.BulkQueryResult, writer io
 			responseTime = "-"
 		}
 
-		table.AddRow([]string{
+		rows = append(rows, []string{
 			domain,
 			status,
 			recordCount,
@@ -228,19 +254,160 @@ func (f *Formatter) formatBulkResultTable(result *dns.BulkQueryResult, writer io
 		})
 	}
 
-	return table.Render(writer)
+	return f.createAndRenderTable([]string{"Domain", "Status", "Records", "Response Time"}, rows, writer)
 }
 
-// JSON formatting methods
-func (f *Formatter) formatQueryResultJSON(result *dns.DNSResult, writer io.Writer) error {
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(result)
+func (f *Formatter) formatBulkSummaryTable(data interface{}, writer io.Writer) error {
+	summary := data.(*dns.BulkSummary)
+	fmt.Fprintf(writer, "\n📋 Bulk Operation Summary\n")
+	fmt.Fprintf(writer, "📊 Total: %d | ✅ Success: %d | ❌ Failed: %d\n",
+		summary.TotalDomains, summary.Successful, summary.Failed)
+	fmt.Fprintf(writer, "⏱️  Duration: %v\n\n", summary.Duration)
+
+	if len(summary.Results) == 0 {
+		fmt.Fprintf(writer, "No results to display.\n")
+		return nil
+	}
+
+	var rows [][]string
+	for _, result := range summary.Results {
+		status := "✅ OK"
+		resultStr := "Success"
+		if !result.Success {
+			status = "❌ ERROR"
+			if result.Error != nil {
+				resultStr = result.Error.Error()
+			} else {
+				resultStr = "Failed"
+			}
+		}
+
+		duration := result.EndTime.Sub(result.StartTime)
+
+		rows = append(rows, []string{
+			truncateString(result.Domain, 30),
+			status,
+			truncateString(resultStr, 40),
+			duration.String(),
+		})
+	}
+
+	return f.createAndRenderTable([]string{"Domain", "Status", "Result", "Duration"}, rows, writer)
+}
+
+func (f *Formatter) formatCertInfoTable(data interface{}, writer io.Writer) error {
+	info := data.(*ssl.CertInfo)
+	fmt.Fprintf(writer, "🔒 SSL Certificate Information for %s\n", info.Domain)
+	fmt.Fprintf(writer, "----------------------------------------\n\n")
+
+	rows := [][]string{
+		{"Common Name", info.CommonName},
+		{"Issuer", truncateString(info.Issuer, 60)},
+		{"Valid From", info.NotBefore.Format("2006-01-02 15:04:05")},
+		{"Valid Until", info.NotAfter.Format("2006-01-02 15:04:05")},
+		{"Expires In", fmt.Sprintf("%d days", info.ExpiresIn)},
+		{"Is Valid", fmt.Sprintf("%t", info.IsValid)},
+		{"Serial Number", info.SerialNumber},
+		{"Signature Algorithm", info.SignatureAlg},
+		{"DNS Names", truncateString(strings.Join(info.DNSNames, ", "), 60)},
+	}
+
+	return f.createAndRenderTable([]string{"Field", "Value"}, rows, writer)
+}
+
+func (f *Formatter) formatDNSSECResultTable(data interface{}, writer io.Writer) error {
+	result := data.(*dnssec.ValidationResult)
+	fmt.Fprintf(writer, "🔐 DNSSEC Validation Results for %s\n", result.Domain)
+	fmt.Fprintf(writer, "----------------------------------------\n\n")
+
+	rows := [][]string{
+		{"Has DNSSEC", fmt.Sprintf("%t", result.HasDNSSEC)},
+		{"Is Signed", fmt.Sprintf("%t", result.IsSigned)},
+		{"Is Valid", fmt.Sprintf("%t", result.IsValid)},
+		{"Checked At", result.Timestamp.Format("2006-01-02 15:04:05")},
+	}
+
+	if len(result.ValidationErrors) > 0 {
+		rows = append(rows, []string{"Validation Errors", strings.Join(result.ValidationErrors, "\n")})
+	}
+
+	if err := f.createAndRenderTable([]string{"Property", "Value"}, rows, writer); err != nil {
+		return err
+	}
+
+	// DS Record details
+	if result.DS != nil {
+		fmt.Fprintf(writer, "\n🔑 DS Record Details\n")
+		fmt.Fprintf(writer, "----------------------------------------\n")
+
+		dsRows := [][]string{
+			{"Key Tag", fmt.Sprintf("%d", result.DS.KeyTag)},
+			{"Algorithm", fmt.Sprintf("%d", result.DS.Algorithm)},
+			{"Digest Type", fmt.Sprintf("%d", result.DS.DigestType)},
+			{"Digest", result.DS.Digest},
+		}
+
+		if err := f.createAndRenderTable([]string{"Property", "Value"}, dsRows, writer); err != nil {
+			return err
+		}
+	}
+
+	// DNSKEY Records
+	if len(result.DNSKEY) > 0 {
+		fmt.Fprintf(writer, "\n🔑 DNSKEY Records\n")
+		fmt.Fprintf(writer, "----------------------------------------\n")
+
+		var dnskeyRows [][]string
+		for _, key := range result.DNSKEY {
+			keyType := "Unknown"
+			if key.Flags&256 != 0 {
+				keyType = "Zone Signing Key (ZSK)"
+			} else if key.Flags&257 != 0 {
+				keyType = "Key Signing Key (KSK)"
+			}
+
+			dnskeyRows = append(dnskeyRows, []string{
+				fmt.Sprintf("%d", key.Flags),
+				fmt.Sprintf("%d", key.Protocol),
+				fmt.Sprintf("%d", key.Algorithm),
+				keyType,
+			})
+		}
+
+		if err := f.createAndRenderTable([]string{"Flags", "Protocol", "Algorithm", "Key Type"}, dnskeyRows, writer); err != nil {
+			return err
+		}
+	}
+
+	// RRSIG Records
+	if len(result.RRSIG) > 0 {
+		fmt.Fprintf(writer, "\n✍️  RRSIG Records\n")
+		fmt.Fprintf(writer, "----------------------------------------\n")
+
+		var rrsigRows [][]string
+		for _, sig := range result.RRSIG {
+			rrsigRows = append(rrsigRows, []string{
+				fmt.Sprintf("%d", sig.TypeCovered),
+				fmt.Sprintf("%d", sig.Algorithm),
+				fmt.Sprintf("%d", sig.Labels),
+				fmt.Sprintf("%d", sig.TTL),
+				sig.Expiration.Format("2006-01-02 15:04:05"),
+				sig.Inception.Format("2006-01-02 15:04:05"),
+			})
+		}
+
+		if err := f.createAndRenderTable([]string{"Type Covered", "Algorithm", "Labels", "TTL", "Expiration", "Inception"}, rrsigRows, writer); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // CSV formatting methods
-func (f *Formatter) formatQueryResultCSV(result *dns.DNSResult, writer io.Writer) error {
-	csvWriter := csv.NewWriter(writer)
+func (f *Formatter) formatQueryResultCSV(data interface{}, writer io.Writer) error {
+	result := data.(*dns.DNSResult)
+	csvWriter := f.createCSVWriter(writer)
 	defer csvWriter.Flush()
 
 	// Write header
@@ -263,11 +430,11 @@ func (f *Formatter) formatQueryResultCSV(result *dns.DNSResult, writer io.Writer
 			result.ResponseTime.String(),
 			"",
 		}
-		
+
 		if result.Error != nil {
 			row[len(row)-1] = result.Error.Error()
 		}
-		
+
 		if err := csvWriter.Write(row); err != nil {
 			return err
 		}
@@ -276,8 +443,9 @@ func (f *Formatter) formatQueryResultCSV(result *dns.DNSResult, writer io.Writer
 	return nil
 }
 
-func (f *Formatter) formatPropagationResultCSV(result *dns.PropagationResult, writer io.Writer) error {
-	csvWriter := csv.NewWriter(writer)
+func (f *Formatter) formatPropagationResultCSV(data interface{}, writer io.Writer) error {
+	result := data.(*dns.PropagationResult)
+	csvWriter := f.createCSVWriter(writer)
 	defer csvWriter.Flush()
 
 	// Write header
@@ -307,8 +475,9 @@ func (f *Formatter) formatPropagationResultCSV(result *dns.PropagationResult, wr
 	return nil
 }
 
-func (f *Formatter) formatConsistencyIssuesCSV(issues []dns.ConsistencyIssue, writer io.Writer) error {
-	csvWriter := csv.NewWriter(writer)
+func (f *Formatter) formatConsistencyIssuesCSV(data interface{}, writer io.Writer) error {
+	issues := data.([]dns.ConsistencyIssue)
+	csvWriter := f.createCSVWriter(writer)
 	defer csvWriter.Flush()
 
 	// Write header
@@ -337,8 +506,9 @@ func (f *Formatter) formatConsistencyIssuesCSV(issues []dns.ConsistencyIssue, wr
 	return nil
 }
 
-func (f *Formatter) formatBulkResultCSV(result *dns.BulkQueryResult, writer io.Writer) error {
-	csvWriter := csv.NewWriter(writer)
+func (f *Formatter) formatBulkResultCSV(data interface{}, writer io.Writer) error {
+	result := data.(*dns.BulkQueryResult)
+	csvWriter := f.createCSVWriter(writer)
 	defer csvWriter.Flush()
 
 	// Write header
@@ -370,11 +540,187 @@ func (f *Formatter) formatBulkResultCSV(result *dns.BulkQueryResult, writer io.W
 	return nil
 }
 
-// XML formatting methods
-func (f *Formatter) formatQueryResultXML(result *dns.DNSResult, writer io.Writer) error {
-	encoder := xml.NewEncoder(writer)
-	encoder.Indent("", "  ")
-	return encoder.Encode(result)
+func (f *Formatter) formatBulkSummaryCSV(data interface{}, writer io.Writer) error {
+	summary := data.(*dns.BulkSummary)
+	csvWriter := f.createCSVWriter(writer)
+	defer csvWriter.Flush()
+
+	// Write header
+	header := []string{"Domain", "Status", "Success", "Error", "StartTime", "EndTime", "Duration"}
+	if err := csvWriter.Write(header); err != nil {
+		return err
+	}
+
+	// Write data
+	for _, result := range summary.Results {
+		status := "success"
+		errorMsg := ""
+		if !result.Success {
+			status = "error"
+			if result.Error != nil {
+				errorMsg = result.Error.Error()
+			}
+		}
+
+		duration := result.EndTime.Sub(result.StartTime)
+
+		row := []string{
+			result.Domain,
+			status,
+			fmt.Sprintf("%t", result.Success),
+			errorMsg,
+			result.StartTime.Format("2006-01-02 15:04:05"),
+			result.EndTime.Format("2006-01-02 15:04:05"),
+			duration.String(),
+		}
+		if err := csvWriter.Write(row); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (f *Formatter) formatCertInfoCSV(data interface{}, writer io.Writer) error {
+	info := data.(*ssl.CertInfo)
+	csvWriter := f.createCSVWriter(writer)
+	defer csvWriter.Flush()
+
+	// Write header
+	header := []string{
+		"Domain",
+		"CommonName",
+		"Issuer",
+		"ValidFrom",
+		"ValidUntil",
+		"ExpiresIn",
+		"IsValid",
+		"SerialNumber",
+		"SignatureAlgorithm",
+		"DNSNames",
+	}
+	if err := csvWriter.Write(header); err != nil {
+		return err
+	}
+
+	// Write data
+	row := []string{
+		info.Domain,
+		info.CommonName,
+		info.Issuer,
+		info.NotBefore.Format("2006-01-02 15:04:05"),
+		info.NotAfter.Format("2006-01-02 15:04:05"),
+		fmt.Sprintf("%d", info.ExpiresIn),
+		fmt.Sprintf("%t", info.IsValid),
+		info.SerialNumber,
+		info.SignatureAlg,
+		strings.Join(info.DNSNames, ";"),
+	}
+	return csvWriter.Write(row)
+}
+
+func (f *Formatter) formatDNSSECResultCSV(data interface{}, writer io.Writer) error {
+	result := data.(*dnssec.ValidationResult)
+	csvWriter := f.createCSVWriter(writer)
+	defer csvWriter.Flush()
+
+	// Write basic info
+	header := []string{
+		"Domain",
+		"HasDNSSEC",
+		"IsSigned",
+		"IsValid",
+		"ValidationErrors",
+		"CheckedAt",
+	}
+	if err := csvWriter.Write(header); err != nil {
+		return err
+	}
+
+	row := []string{
+		result.Domain,
+		fmt.Sprintf("%t", result.HasDNSSEC),
+		fmt.Sprintf("%t", result.IsSigned),
+		fmt.Sprintf("%t", result.IsValid),
+		strings.Join(result.ValidationErrors, "; "),
+		result.Timestamp.Format("2006-01-02 15:04:05"),
+	}
+	if err := csvWriter.Write(row); err != nil {
+		return err
+	}
+
+	// Write DS record
+	if result.DS != nil {
+		if err := csvWriter.Write([]string{"", "DS Record Details"}); err != nil {
+			return err
+		}
+		if err := csvWriter.Write([]string{"KeyTag", "Algorithm", "DigestType", "Digest"}); err != nil {
+			return err
+		}
+		if err := csvWriter.Write([]string{
+			fmt.Sprintf("%d", result.DS.KeyTag),
+			fmt.Sprintf("%d", result.DS.Algorithm),
+			fmt.Sprintf("%d", result.DS.DigestType),
+			result.DS.Digest,
+		}); err != nil {
+			return err
+		}
+	}
+
+	// Write DNSKEY records
+	if len(result.DNSKEY) > 0 {
+		if err := csvWriter.Write([]string{"", "DNSKEY Records"}); err != nil {
+			return err
+		}
+		if err := csvWriter.Write([]string{"Flags", "Protocol", "Algorithm", "PublicKey"}); err != nil {
+			return err
+		}
+		for _, key := range result.DNSKEY {
+			if err := csvWriter.Write([]string{
+				fmt.Sprintf("%d", key.Flags),
+				fmt.Sprintf("%d", key.Protocol),
+				fmt.Sprintf("%d", key.Algorithm),
+				key.PublicKey,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Write RRSIG records
+	if len(result.RRSIG) > 0 {
+		if err := csvWriter.Write([]string{"", "RRSIG Records"}); err != nil {
+			return err
+		}
+		if err := csvWriter.Write([]string{
+			"TypeCovered",
+			"Algorithm",
+			"Labels",
+			"TTL",
+			"Expiration",
+			"Inception",
+			"KeyTag",
+			"SignerName",
+		}); err != nil {
+			return err
+		}
+		for _, sig := range result.RRSIG {
+			if err := csvWriter.Write([]string{
+				fmt.Sprintf("%d", sig.TypeCovered),
+				fmt.Sprintf("%d", sig.Algorithm),
+				fmt.Sprintf("%d", sig.Labels),
+				fmt.Sprintf("%d", sig.TTL),
+				sig.Expiration.Format("2006-01-02 15:04:05"),
+				sig.Inception.Format("2006-01-02 15:04:05"),
+				fmt.Sprintf("%d", sig.KeyTag),
+				sig.SignerName,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // Utility functions
