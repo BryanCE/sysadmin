@@ -20,6 +20,46 @@ var CommonNameservers = map[string][]Nameserver{
 		{Name: "opendns1", IP: net.ParseIP("208.67.222.222"), Port: 53, Provider: "OpenDNS"},
 		{Name: "opendns2", IP: net.ParseIP("208.67.220.220"), Port: 53, Provider: "OpenDNS"},
 	},
+	"godaddy": {
+		{Name: "godaddy-dns1", IP: net.ParseIP("173.201.71.1"), Port: 53, Provider: "GoDaddy"},
+		{Name: "godaddy-dns2", IP: net.ParseIP("173.201.71.12"), Port: 53, Provider: "GoDaddy"},
+	},
+	"squarespace": {
+		{Name: "squarespace-dns1", IP: net.ParseIP("198.185.159.144"), Port: 53, Provider: "Squarespace"},
+		{Name: "squarespace-dns2", IP: net.ParseIP("198.185.159.145"), Port: 53, Provider: "Squarespace"},
+	},
+	"namecheap": {
+		{Name: "namecheap-dns1", IP: net.ParseIP("198.54.120.19"), Port: 53, Provider: "Namecheap"},
+		{Name: "namecheap-dns2", IP: net.ParseIP("198.54.117.10"), Port: 53, Provider: "Namecheap"},
+	},
+	"dyn": {
+		{Name: "dyn-dns1", IP: net.ParseIP("216.146.35.35"), Port: 53, Provider: "Dyn"},
+		{Name: "dyn-dns2", IP: net.ParseIP("216.146.36.36"), Port: 53, Provider: "Dyn"},
+	},
+	"comodo": {
+		{Name: "comodo-dns1", IP: net.ParseIP("8.26.56.26"), Port: 53, Provider: "Comodo"},
+		{Name: "comodo-dns2", IP: net.ParseIP("8.20.247.20"), Port: 53, Provider: "Comodo"},
+	},
+	"verisign": {
+		{Name: "verisign-dns1", IP: net.ParseIP("64.6.64.6"), Port: 53, Provider: "Verisign"},
+		{Name: "verisign-dns2", IP: net.ParseIP("64.6.65.6"), Port: 53, Provider: "Verisign"},
+	},
+	"adguard": {
+		{Name: "adguard-dns1", IP: net.ParseIP("94.140.14.14"), Port: 53, Provider: "AdGuard"},
+		{Name: "adguard-dns2", IP: net.ParseIP("94.140.15.15"), Port: 53, Provider: "AdGuard"},
+	},
+	"cleanbrowing": {
+		{Name: "cleanbrowing-dns1", IP: net.ParseIP("185.228.168.9"), Port: 53, Provider: "CleanBrowsing"},
+		{Name: "cleanbrowing-dns2", IP: net.ParseIP("185.228.169.9"), Port: 53, Provider: "CleanBrowsing"},
+	},
+	"alternate": {
+		{Name: "alternate-dns1", IP: net.ParseIP("76.76.19.19"), Port: 53, Provider: "Alternate DNS"},
+		{Name: "alternate-dns2", IP: net.ParseIP("76.223.100.101"), Port: 53, Provider: "Alternate DNS"},
+	},
+	"level3": {
+		{Name: "level3-dns1", IP: net.ParseIP("209.244.0.3"), Port: 53, Provider: "Level3"},
+		{Name: "level3-dns2", IP: net.ParseIP("209.244.0.4"), Port: 53, Provider: "Level3"},
+	},
 }
 
 type Nameserver struct {
