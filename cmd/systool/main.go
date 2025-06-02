@@ -13,7 +13,7 @@ var version = "dev" // Will be set by ldflags during build
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "dns-tool",
+		Use:   "systool",
 		Short: "DNS & SSL Swiss Army Knife - Advanced DNS and SSL analysis tool",
 		Long: `A comprehensive tool for network administrators and security professionals.
 Features include DNS querying, propagation checking, DNS inconsistency detection,
