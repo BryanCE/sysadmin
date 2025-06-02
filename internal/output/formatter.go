@@ -108,13 +108,13 @@ func (f *Formatter) formatQueryResultTable(result *dns.DNSResult, writer io.Writ
 	}
 
 	table := NewTable([]string{"Name", "Type", "Value", "TTL", "Priority"})
-	
+
 	for _, record := range result.Records {
 		priority := ""
 		if record.Priority > 0 {
 			priority = fmt.Sprintf("%d", record.Priority)
 		}
-		
+
 		table.AddRow([]string{
 			truncateString(record.Name, 40),
 			string(record.Type),
@@ -130,13 +130,13 @@ func (f *Formatter) formatQueryResultTable(result *dns.DNSResult, writer io.Writ
 func (f *Formatter) formatPropagationResultTable(result *dns.PropagationResult, writer io.Writer) error {
 	fmt.Fprintf(writer, "🌐 DNS Propagation Check for %s (%s)\n", result.Domain, result.RecordType)
 	fmt.Fprintf(writer, "📊 Checked %d servers, %d responded successfully\n", result.TotalServers, result.SuccessCount)
-	
+
 	if result.Inconsistent {
 		fmt.Fprintf(writer, "⚠️  Inconsistencies detected!\n")
 	} else {
 		fmt.Fprintf(writer, "✅ All servers are consistent\n")
 	}
-	
+
 	fmt.Fprintf(writer, "🕐 Checked at: %s\n\n", result.Timestamp.Format("2006-01-02 15:04:05"))
 
 	if len(result.Results) == 0 {
@@ -149,13 +149,13 @@ func (f *Formatter) formatPropagationResultTable(result *dns.PropagationResult, 
 	for nameserver, records := range result.Results {
 		status := "✅ OK"
 		recordCount := fmt.Sprintf("%d", len(records))
-		
+
 		var values []string
 		for _, record := range records {
 			values = append(values, record.Value)
 		}
 		valueStr := strings.Join(values, ", ")
-		
+
 		table.AddRow([]string{
 			nameserver,
 			status,
@@ -202,7 +202,7 @@ func (f *Formatter) formatConsistencyIssuesTable(issues []dns.ConsistencyIssue, 
 
 func (f *Formatter) formatBulkResultTable(result *dns.BulkQueryResult, writer io.Writer) error {
 	fmt.Fprintf(writer, "📋 Bulk DNS Query Results\n")
-	fmt.Fprintf(writer, "📊 Total: %d | ✅ Success: %d | ❌ Failed: %d\n", 
+	fmt.Fprintf(writer, "📊 Total: %d | ✅ Success: %d | ❌ Failed: %d\n",
 		result.TotalQueries, result.SuccessfulQueries, result.FailedQueries)
 	fmt.Fprintf(writer, "⏱️  Duration: %v\n", result.Duration)
 	fmt.Fprintf(writer, "🕐 Completed at: %s\n\n", result.Timestamp.Format("2006-01-02 15:04:05"))
@@ -263,11 +263,11 @@ func (f *Formatter) formatQueryResultCSV(result *dns.DNSResult, writer io.Writer
 			result.ResponseTime.String(),
 			"",
 		}
-		
+
 		if result.Error != nil {
 			row[len(row)-1] = result.Error.Error()
 		}
-		
+
 		if err := csvWriter.Write(row); err != nil {
 			return err
 		}
